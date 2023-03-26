@@ -13,6 +13,7 @@ enum Instruction {
     SUB(Operand),
     INP,
     OUT,
+    OTC,
     HLT,
     BRZ(Operand),
     BRP(Operand),
@@ -22,7 +23,7 @@ enum Instruction {
 
 #[derive(Debug)]
 enum Operand {
-    Value(u16),
+    Value(i16),
     Label(String),
 }
 
@@ -36,13 +37,14 @@ type Program = Vec<(Label, Instruction)>;
 
 impl Instruction {
     fn from_string(opcode: &str, operand: Option<Operand>) -> Option<Self> {
-        match opcode {
+        match opcode.to_uppercase().as_str() {
             "LDA" => Some(Instruction::LDA(operand.expect("LDA requires an operand"))),
             "STA" => Some(Instruction::STA(operand.expect("STA requires an operand"))),
             "ADD" => Some(Instruction::ADD(operand.expect("ADD requires an operand"))),
             "SUB" => Some(Instruction::SUB(operand.expect("SUB requires an operand"))),
             "INP" => Some(Instruction::INP),
             "OUT" => Some(Instruction::OUT),
+            "OTC" => Some(Instruction::OTC),
             "HLT" => Some(Instruction::HLT),
             "BRZ" => Some(Instruction::BRZ(operand.expect("BRZ requires an operand"))),
             "BRP" => Some(Instruction::BRP(operand.expect("BRP requires an operand"))),
@@ -51,7 +53,7 @@ impl Instruction {
             _ => None,
         }
     }
-    fn get_base(&self) -> u16 {
+    fn get_base(&self) -> i16 {
         match self {
             Self::LDA(_) => 500,
             Self::STA(_) => 300,
@@ -59,6 +61,7 @@ impl Instruction {
             Self::SUB(_) => 200,
             Self::INP => 901,
             Self::OUT => 902,
+            Self::OTC => 922,
             Self::HLT => 0,
             Self::BRZ(_) => 700,
             Self::BRP(_) => 800,
@@ -72,7 +75,7 @@ impl FromStr for Operand {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.parse::<u16>() {
+        match s.parse::<i16>() {
             Ok(val) => Ok(Operand::Value(val)),
             Err(_) => Ok(Operand::Label(s.to_string())),
         }
@@ -80,14 +83,14 @@ impl FromStr for Operand {
 }
 
 impl Operand {
-    fn get_value(&self, program: &Program) -> u16 {
+    fn get_value(&self, program: &Program) -> i16 {
         match self {
             Operand::Value(val) => *val,
             Operand::Label(lbl) => program
                 .iter()
                 .position(|x| x.0 == Label::LBL(lbl.to_string()))
                 .expect(&format!("Invalid label... {}", lbl))
-                as u16,
+                as i16,
         }
     }
 }
@@ -180,7 +183,7 @@ fn parse(code: &str) -> Program {
     program
 }
 
-fn assemble(program: Program) -> [u16; 100] {
+fn assemble(program: Program) -> [i16; 100] {
     let mut ram = [0; 100];
 
     for (i, (_, instruction)) in program.iter().enumerate() {
@@ -193,7 +196,9 @@ fn assemble(program: Program) -> [u16; 100] {
             | Instruction::STA(operand)
             | Instruction::ADD(operand)
             | Instruction::SUB(operand) => instruction.get_base() + operand.get_value(&program),
-            Instruction::INP | Instruction::OUT | Instruction::HLT => instruction.get_base(),
+            Instruction::INP | Instruction::OUT | Instruction::OTC | Instruction::HLT => {
+                instruction.get_base()
+            }
         }
     }
 
@@ -202,15 +207,15 @@ fn assemble(program: Program) -> [u16; 100] {
 
 #[derive(Debug)]
 struct ExecutionState {
-    pc: u16,
-    cir: u16,
-    mar: u16,
-    mdr: u16,
-    acc: u16,
-    ram: [u16; 100],
+    pc: i16,
+    cir: i16,
+    mar: i16,
+    mdr: i16,
+    acc: i16,
+    ram: [i16; 100],
 }
 
-fn run(program: [u16; 100]) {
+fn run(program: [i16; 100]) {
     let debug_mode = env::var("DEBUG_MODE").unwrap_or("0".to_string()) == "1";
 
     let mut state = ExecutionState {
@@ -237,16 +242,31 @@ fn run(program: [u16; 100]) {
                 io::stdin()
                     .read_line(&mut input)
                     .expect("Failed to read line");
-                state.acc = input.trim().parse().expect("Not a number");
+                let res = input.trim().parse().expect("Not a number");
+                if res < -999 || res > 999 {
+                    panic!("Number out of range");
+                }
+                state.acc = res;
             }
             902 => println!("{}", state.acc),
+            922 => print!("{}", state.acc as u8 as char),
             100..=199 => {
                 state.mar = state.cir - 100;
                 state.acc += state.ram[state.mar as usize];
+                // handle overflow to -999
+                if state.acc > 999 {
+                    let diff = state.acc - 999;
+                    state.acc = -999 + diff - 1;
+                }
             }
             200..=299 => {
                 state.mar = state.cir - 200;
                 state.acc -= state.ram[state.mar as usize];
+                // handle underflow to 999
+                if state.acc < -999 {
+                    let diff = -999 - state.acc;
+                    state.acc = 999 - diff + 1;
+                }
             }
             300..=399 => {
                 state.mar = state.cir - 300;
