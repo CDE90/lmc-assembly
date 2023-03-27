@@ -1,12 +1,14 @@
 use dotenvy::dotenv;
 use std::{
-    env, fs,
-    io::{self, stdout, Write},
+    env,
+    fmt::{Display, Error, Formatter},
+    fs,
+    io::{self, Write},
     str::FromStr,
 };
 
 #[derive(Debug)]
-enum Instruction {
+pub enum Instruction {
     LDA(Operand),
     STA(Operand),
     ADD(Operand),
@@ -22,18 +24,18 @@ enum Instruction {
 }
 
 #[derive(Debug)]
-enum Operand {
+pub enum Operand {
     Value(i16),
     Label(String),
 }
 
 #[derive(Debug)]
-enum Label {
+pub enum Label {
     LBL(String),
     None,
 }
 
-type Program = Vec<(Label, Instruction)>;
+pub type Program = Vec<(Label, Instruction)>;
 
 impl Instruction {
     fn from_string(opcode: &str, operand: Option<Operand>) -> Option<Self> {
@@ -112,7 +114,7 @@ fn main() {
 
     let program = fs::read_to_string("program.lmc").expect("Should've been able to read the file");
 
-    let parsed = parse(&program);
+    let parsed = parse(&program, debug_mode);
 
     if debug_mode {
         println!("Program:\n{:?}\n", parsed);
@@ -124,12 +126,10 @@ fn main() {
         println!("Assembled:\n{:?}\n", assembled);
     }
 
-    run(assembled);
+    run(assembled, DefaultIO, debug_mode);
 }
 
-fn parse(code: &str) -> Program {
-    let debug_mode = env::var("DEBUG_MODE").unwrap_or("0".to_string()) == "1";
-
+pub fn parse(code: &str, debug_mode: bool) -> Program {
     if debug_mode {
         println!("Parsing code...");
     }
@@ -183,7 +183,7 @@ fn parse(code: &str) -> Program {
     program
 }
 
-fn assemble(program: Program) -> [i16; 100] {
+pub fn assemble(program: Program) -> [i16; 100] {
     let mut ram = [0; 100];
 
     for (i, (_, instruction)) in program.iter().enumerate() {
@@ -215,9 +215,51 @@ struct ExecutionState {
     ram: [i16; 100],
 }
 
-fn run(program: [i16; 100]) {
-    let debug_mode = env::var("DEBUG_MODE").unwrap_or("0".to_string()) == "1";
+pub enum Output {
+    Char(char),
+    Int(i16),
+}
 
+impl Display for Output {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            Output::Char(c) => write!(f, "{}", c),
+            Output::Int(i) => write!(f, "{}", i),
+        }
+    }
+}
+
+pub trait LMCIO {
+    fn get_input(&self) -> i16;
+    fn print_output(&self, val: Output);
+}
+
+pub struct DefaultIO;
+
+impl LMCIO for DefaultIO {
+    fn get_input(&self) -> i16 {
+        print!("> ");
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
+
+        input.trim().parse::<i16>().unwrap()
+    }
+
+    fn print_output(&self, val: Output) {
+        println!("{}", val);
+    }
+}
+
+impl Default for DefaultIO {
+    fn default() -> Self {
+        DefaultIO {}
+    }
+}
+
+pub fn run<T: LMCIO>(program: [i16; 100], io_handler: T, debug_mode: bool) {
     let mut state = ExecutionState {
         pc: 0,
         cir: 0,
@@ -236,20 +278,14 @@ fn run(program: [i16; 100]) {
         match state.cir {
             0 => break,
             901 => {
-                let mut input = String::new();
-                print!("> ");
-                stdout().flush().unwrap();
-                io::stdin()
-                    .read_line(&mut input)
-                    .expect("Failed to read line");
-                let res = input.trim().parse().expect("Not a number");
+                let res = io_handler.get_input();
                 if res < -999 || res > 999 {
                     panic!("Number out of range");
                 }
                 state.acc = res;
             }
-            902 => println!("{}", state.acc),
-            922 => print!("{}", state.acc as u8 as char),
+            902 => io_handler.print_output(Output::Int(state.acc)),
+            922 => io_handler.print_output(Output::Char(state.acc as u8 as char)),
             100..=199 => {
                 state.mar = state.cir - 100;
                 state.acc += state.ram[state.mar as usize];
