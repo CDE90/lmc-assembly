@@ -1,8 +1,5 @@
-use dotenvy::dotenv;
 use std::{
-    env,
     fmt::{Display, Error, Formatter},
-    fs,
     io::{self, Write},
     str::FromStr,
 };
@@ -22,20 +19,6 @@ pub enum Instruction {
     BRA(Operand),
     DAT(Operand),
 }
-
-#[derive(Debug)]
-pub enum Operand {
-    Value(i16),
-    Label(String),
-}
-
-#[derive(Debug)]
-pub enum Label {
-    LBL(String),
-    None,
-}
-
-pub type Program = Vec<(Label, Instruction)>;
 
 impl Instruction {
     fn from_string(opcode: &str, operand: Option<Operand>) -> Option<Self> {
@@ -73,6 +56,12 @@ impl Instruction {
     }
 }
 
+#[derive(Debug)]
+pub enum Operand {
+    Value(i16),
+    Label(String),
+}
+
 impl FromStr for Operand {
     type Err = String;
 
@@ -97,6 +86,12 @@ impl Operand {
     }
 }
 
+#[derive(Debug)]
+pub enum Label {
+    LBL(String),
+    None,
+}
+
 impl PartialEq for Label {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -107,27 +102,7 @@ impl PartialEq for Label {
     }
 }
 
-fn main() {
-    dotenv().expect("Failed to load .env file");
-
-    let debug_mode = env::var("DEBUG_MODE").unwrap_or("0".to_string()) == "1";
-
-    let program = fs::read_to_string("program.lmc").expect("Should've been able to read the file");
-
-    let parsed = parse(&program, debug_mode);
-
-    if debug_mode {
-        println!("Program:\n{:?}\n", parsed);
-    }
-
-    let assembled = assemble(parsed);
-
-    if debug_mode {
-        println!("Assembled:\n{:?}\n", assembled);
-    }
-
-    run(assembled, DefaultIO, debug_mode);
-}
+pub type Program = Vec<(Label, Instruction)>;
 
 pub fn parse(code: &str, debug_mode: bool) -> Program {
     if debug_mode {
@@ -141,6 +116,10 @@ pub fn parse(code: &str, debug_mode: bool) -> Program {
 
         if debug_mode {
             println!("{:?}", tokens);
+        }
+
+        if tokens.len() > 0 && tokens[0].starts_with("//") {
+            continue;
         }
 
         match tokens.len() {
