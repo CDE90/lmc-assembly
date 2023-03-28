@@ -184,13 +184,84 @@ pub fn assemble(program: Program) -> [i16; 100] {
 }
 
 #[derive(Debug)]
-struct ExecutionState {
+pub struct ExecutionState {
     pc: i16,
     cir: i16,
     mar: i16,
     mdr: i16,
     acc: i16,
     ram: [i16; 100],
+}
+
+impl ExecutionState {
+    pub fn step<T: LMCIO>(&mut self, io_handler: &T) {
+        self.mar = self.pc;
+        self.pc += 1;
+        self.mdr = self.ram[self.mar as usize];
+        self.cir = self.mdr;
+        // do instruction
+        match self.cir {
+            0 => self.pc = -1,
+            901 => {
+                let res = io_handler.get_input();
+                if res < -999 || res > 999 {
+                    panic!("Number out of range");
+                }
+                self.acc = res;
+            }
+            902 => io_handler.print_output(Output::Int(self.acc)),
+            922 => io_handler.print_output(Output::Char(self.acc as u8 as char)),
+            100..=199 => {
+                self.mar = self.cir - 100;
+                self.acc += self.ram[self.mar as usize];
+                // handle overflow to -999
+                if self.acc > 999 {
+                    let diff = self.acc - 999;
+                    self.acc = -999 + diff - 1;
+                } else if self.acc < -999 {
+                    let diff = -999 - self.acc;
+                    self.acc = 999 - diff + 1;
+                }
+            }
+            200..=299 => {
+                self.mar = self.cir - 200;
+                self.acc -= self.ram[self.mar as usize];
+                // handle underflow to 999
+                if self.acc < -999 {
+                    let diff = -999 - self.acc;
+                    self.acc = 999 - diff + 1;
+                } else if self.acc > 999 {
+                    let diff = self.acc - 999;
+                    self.acc = -999 + diff - 1;
+                }
+            }
+            300..=399 => {
+                self.mar = self.cir - 300;
+                self.ram[self.mar as usize] = self.acc;
+            }
+            500..=599 => {
+                self.mar = self.cir - 500;
+                self.acc = self.ram[self.mar as usize];
+            }
+            600..=699 => {
+                self.mar = self.cir - 600;
+                self.pc = self.mar;
+            }
+            700..=799 => {
+                self.mar = self.cir - 700;
+                if self.acc == 0 {
+                    self.pc = self.mar;
+                }
+            }
+            800..=899 => {
+                self.mar = self.cir - 800;
+                if self.acc > 0 {
+                    self.pc = self.mar;
+                }
+            }
+            _ => panic!("Invalid instruction"),
+        };
+    }
 }
 
 pub enum Output {
@@ -225,12 +296,6 @@ impl LMCIO for DefaultIO {
     }
 }
 
-impl Default for DefaultIO {
-    fn default() -> Self {
-        DefaultIO {}
-    }
-}
-
 pub fn run<T: LMCIO>(program: [i16; 100], io_handler: T, debug_mode: bool) {
     let mut state = ExecutionState {
         pc: 0,
@@ -242,65 +307,10 @@ pub fn run<T: LMCIO>(program: [i16; 100], io_handler: T, debug_mode: bool) {
     };
 
     loop {
-        state.mar = state.pc;
-        state.pc += 1;
-        state.mdr = state.ram[state.mar as usize];
-        state.cir = state.mdr;
-        // do instruction
-        match state.cir {
-            0 => break,
-            901 => {
-                let res = io_handler.get_input();
-                if res < -999 || res > 999 {
-                    panic!("Number out of range");
-                }
-                state.acc = res;
-            }
-            902 => io_handler.print_output(Output::Int(state.acc)),
-            922 => io_handler.print_output(Output::Char(state.acc as u8 as char)),
-            100..=199 => {
-                state.mar = state.cir - 100;
-                state.acc += state.ram[state.mar as usize];
-                // handle overflow to -999
-                if state.acc > 999 {
-                    let diff = state.acc - 999;
-                    state.acc = -999 + diff - 1;
-                }
-            }
-            200..=299 => {
-                state.mar = state.cir - 200;
-                state.acc -= state.ram[state.mar as usize];
-                // handle underflow to 999
-                if state.acc < -999 {
-                    let diff = -999 - state.acc;
-                    state.acc = 999 - diff + 1;
-                }
-            }
-            300..=399 => {
-                state.mar = state.cir - 300;
-                state.ram[state.mar as usize] = state.acc;
-            }
-            500..=599 => {
-                state.mar = state.cir - 500;
-                state.acc = state.ram[state.mar as usize];
-            }
-            600..=699 => {
-                state.mar = state.cir - 600;
-                state.pc = state.mar;
-            }
-            700..=799 => {
-                state.mar = state.cir - 700;
-                if state.acc == 0 {
-                    state.pc = state.mar;
-                }
-            }
-            800..=899 => {
-                state.mar = state.cir - 800;
-                if state.acc > 0 {
-                    state.pc = state.mar;
-                }
-            }
-            _ => panic!("Invalid instruction"),
+        state.step(&io_handler);
+
+        if state.pc == -1 {
+            break;
         }
 
         if debug_mode {
