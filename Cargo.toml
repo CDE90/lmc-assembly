@@ -2,3 +2,8 @@
 name = "lmc-assembly"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "A library for assembling and running LMC (Little Man Computer) programs."
+authors = ["Ethan Coward <ethan@ethancoward.dev>"]
+repository = "https://github.com/CDE90/lmc-assembly"
+readme = "README.md"
