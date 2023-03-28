@@ -1,5 +1,4 @@
 use std::{
-    fmt::{Display, Error, Formatter},
     io::{self, Write},
     str::FromStr,
 };
@@ -199,15 +198,6 @@ pub enum Output {
     Int(i16),
 }
 
-impl Display for Output {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Output::Char(c) => write!(f, "{}", c),
-            Output::Int(i) => write!(f, "{}", i),
-        }
-    }
-}
-
 pub trait LMCIO {
     fn get_input(&self) -> i16;
     fn print_output(&self, val: Output);
@@ -228,7 +218,10 @@ impl LMCIO for DefaultIO {
     }
 
     fn print_output(&self, val: Output) {
-        println!("{}", val);
+        match val {
+            Output::Char(c) => print!("{}", c),
+            Output::Int(i) => println!("{}", i),
+        }
     }
 }
 

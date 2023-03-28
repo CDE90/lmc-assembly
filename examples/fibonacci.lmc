@@ -1,0 +1,23 @@
+        INP
+        STA NUM
+
+LOOP    LDA FIRST
+        SUB NUM
+        BRP ENDLOOP
+        LDA FIRST
+        OUT
+        LDA SECOND
+        ADD FIRST
+        STA ACC
+        LDA SECOND
+        STA FIRST
+        LDA ACC
+        STA SECOND
+        BRA LOOP
+
+ENDLOOP HLT
+
+FIRST   DAT 0
+SECOND  DAT 1
+NUM     DAT
+ACC     DAT

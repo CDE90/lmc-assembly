@@ -1,0 +1,14 @@
+        LDA SPACE
+        STA CHAR
+LOOP    LDA CHAR
+        OTC
+        ADD ONE
+        STA CHAR
+        SUB MAX
+        BRZ END
+        BRA LOOP
+END     HLT
+SPACE   DAT 32
+ONE     DAT 1
+MAX     DAT 127
+CHAR    DAT
