@@ -1,0 +1,21 @@
+        INP
+        STA FIRST
+        INP
+        STA SECOND
+LOOP    LDA SECOND
+        BRZ ENDTHIS
+        SUB ONE
+        STA SECOND
+        LDA ANS
+        ADD FIRST
+        STA ANS
+        BRA LOOP
+ENDTHIS LDA ANS
+        OUT
+        SUB ANS
+        STA ANS
+        HLT
+FIRST   DAT
+SECOND  DAT
+ONE     DAT 1
+ANS     DAT 0

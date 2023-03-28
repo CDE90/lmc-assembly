@@ -20,7 +20,7 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    fn from_string(opcode: &str, operand: Option<Operand>) -> Option<Self> {
+    pub fn from_string(opcode: &str, operand: Option<Operand>) -> Option<Self> {
         match opcode.to_uppercase().as_str() {
             "LDA" => Some(Instruction::LDA(operand.expect("LDA requires an operand"))),
             "STA" => Some(Instruction::STA(operand.expect("STA requires an operand"))),
@@ -194,7 +194,7 @@ pub struct ExecutionState {
 }
 
 impl ExecutionState {
-    pub fn step<T: LMCIO>(&mut self, io_handler: &T) {
+    pub fn step<T: LMCIO>(&mut self, io_handler: &mut T) {
         self.mar = self.pc;
         self.pc += 1;
         self.mdr = self.ram[self.mar as usize];
@@ -264,20 +264,21 @@ impl ExecutionState {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Output {
     Char(char),
     Int(i16),
 }
 
 pub trait LMCIO {
-    fn get_input(&self) -> i16;
-    fn print_output(&self, val: Output);
+    fn get_input(&mut self) -> i16;
+    fn print_output(&mut self, val: Output);
 }
 
 pub struct DefaultIO;
 
 impl LMCIO for DefaultIO {
-    fn get_input(&self) -> i16 {
+    fn get_input(&mut self) -> i16 {
         print!("> ");
         io::stdout().flush().unwrap();
         let mut input = String::new();
@@ -288,7 +289,7 @@ impl LMCIO for DefaultIO {
         input.trim().parse::<i16>().unwrap()
     }
 
-    fn print_output(&self, val: Output) {
+    fn print_output(&mut self, val: Output) {
         match val {
             Output::Char(c) => print!("{}", c),
             Output::Int(i) => println!("{}", i),
@@ -296,7 +297,7 @@ impl LMCIO for DefaultIO {
     }
 }
 
-pub fn run<T: LMCIO>(program: [i16; 100], io_handler: T, debug_mode: bool) {
+pub fn run<T: LMCIO>(program: [i16; 100], io_handler: &mut T, debug_mode: bool) {
     let mut state = ExecutionState {
         pc: 0,
         cir: 0,
@@ -307,7 +308,7 @@ pub fn run<T: LMCIO>(program: [i16; 100], io_handler: T, debug_mode: bool) {
     };
 
     loop {
-        state.step(&io_handler);
+        state.step(io_handler);
 
         if state.pc == -1 {
             break;
