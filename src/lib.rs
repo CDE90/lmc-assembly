@@ -79,7 +79,7 @@ impl Operand {
             Operand::Label(lbl) => program
                 .iter()
                 .position(|x| x.0 == Label::LBL(lbl.to_string()))
-                .expect(&format!("Invalid label... {}", lbl))
+                .unwrap_or_else(|| panic!("Invalid label... {}", lbl))
                 as i16,
         }
     }
@@ -117,7 +117,7 @@ pub fn parse(code: &str, debug_mode: bool) -> Program {
             println!("{:?}", tokens);
         }
 
-        if tokens.len() > 0 && tokens[0].starts_with("//") {
+        if !tokens.is_empty() && tokens[0].starts_with("//") {
             continue;
         }
 
@@ -125,7 +125,7 @@ pub fn parse(code: &str, debug_mode: bool) -> Program {
             0 => continue,
             1 => {
                 let instruction = Instruction::from_string(tokens[0], None)
-                    .expect(&format!("Invalid opcode... {}", tokens[0]));
+                    .unwrap_or_else(|| panic!("Invalid opcode... {}", tokens[0]));
 
                 program.push((Label::None, instruction));
             }
@@ -136,7 +136,7 @@ pub fn parse(code: &str, debug_mode: bool) -> Program {
                     Some(val) => program.push((Label::None, val)),
                     None => {
                         let instruction = Instruction::from_string(tokens[1], None)
-                            .expect(&format!("Invalid opcode... {}", tokens[1]));
+                            .unwrap_or_else(|| panic!("Invalid opcode... {}", tokens[1]));
 
                         program.push((Label::LBL(tokens[0].to_string()), instruction));
                     }
@@ -146,7 +146,7 @@ pub fn parse(code: &str, debug_mode: bool) -> Program {
                 let operand = tokens[2].parse::<Operand>().unwrap();
 
                 let instruction = Instruction::from_string(tokens[1], Some(operand))
-                    .expect(&format!("Invalid opcode... {}", tokens[1]));
+                    .unwrap_or_else(|| panic!("Invalid opcode... {}", tokens[1]));
 
                 program.push((Label::LBL(tokens[0].to_string()), instruction));
             }
@@ -204,7 +204,7 @@ impl ExecutionState {
             0 => self.pc = -1,
             901 => {
                 let res = io_handler.get_input();
-                if res < -999 || res > 999 {
+                if !(-999..=999).contains(&res) {
                     panic!("Number out of range");
                 }
                 self.acc = res;
