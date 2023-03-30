@@ -189,13 +189,13 @@ pub fn assemble(program: Program) -> [i16; 100] {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct ExecutionState {
-    pc: i16,
-    cir: i16,
-    mar: i16,
-    mdr: i16,
-    acc: i16,
+    pub pc: i16,
+    pub cir: i16,
+    pub mar: i16,
+    pub mdr: i16,
+    pub acc: i16,
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
-    ram: [i16; 100],
+    pub ram: [i16; 100],
 }
 
 impl ExecutionState {
