@@ -6,6 +6,7 @@ use std::{
 #[cfg(feature = "serde")]
 use serde_derive::{Deserialize, Serialize};
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub enum Instruction {
     LDA(Operand),
@@ -58,6 +59,7 @@ impl Instruction {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub enum Operand {
     Value(i16),
@@ -88,6 +90,7 @@ impl Operand {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub enum Label {
     LBL(String),
@@ -269,6 +272,7 @@ impl ExecutionState {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub enum Output {
     Char(char),
