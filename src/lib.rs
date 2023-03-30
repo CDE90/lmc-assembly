@@ -3,6 +3,9 @@ use std::{
     str::FromStr,
 };
 
+#[cfg(feature = "serde")]
+use serde_derive::{Deserialize, Serialize};
+
 #[derive(Debug)]
 pub enum Instruction {
     LDA(Operand),
@@ -183,6 +186,7 @@ pub fn assemble(program: Program) -> [i16; 100] {
     ram
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct ExecutionState {
     pc: i16,
@@ -190,6 +194,7 @@ pub struct ExecutionState {
     mar: i16,
     mdr: i16,
     acc: i16,
+    #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     ram: [i16; 100],
 }
 
