@@ -82,12 +82,10 @@ impl Operand {
         match self {
             Operand::Value(val) => Ok(*val),
             Operand::Label(lbl) => {
-                let mut pos = 0;
-                for (label, _) in program {
+                for (pos, (label, _)) in program.iter().enumerate() {
                     if label == &Label::LBL(lbl.to_string()) {
-                        return Ok(pos);
+                        return Ok(pos as i16);
                     }
-                    pos += 1;
                 }
                 Err(format!("Invalid label... {}", lbl))
             }
