@@ -78,14 +78,19 @@ impl FromStr for Operand {
 }
 
 impl Operand {
-    fn get_value(&self, program: &Program) -> i16 {
+    fn get_value(&self, program: &Program) -> Result<i16, String> {
         match self {
-            Operand::Value(val) => *val,
-            Operand::Label(lbl) => program
-                .iter()
-                .position(|x| x.0 == Label::LBL(lbl.to_string()))
-                .unwrap_or_else(|| panic!("Invalid label... {}", lbl))
-                as i16,
+            Operand::Value(val) => Ok(*val),
+            Operand::Label(lbl) => {
+                let mut pos = 0;
+                for (label, _) in program {
+                    if label == &Label::LBL(lbl.to_string()) {
+                        return Ok(pos);
+                    }
+                    pos += 1;
+                }
+                Err(format!("Invalid label... {}", lbl))
+            }
         }
     }
 }
@@ -109,7 +114,7 @@ impl PartialEq for Label {
 
 pub type Program = Vec<(Label, Instruction)>;
 
-pub fn parse(code: &str, debug_mode: bool) -> Program {
+pub fn parse(code: &str, debug_mode: bool) -> Result<Program, String> {
     if debug_mode {
         println!("Parsing code...");
     }
@@ -131,32 +136,32 @@ pub fn parse(code: &str, debug_mode: bool) -> Program {
             0 => continue,
             1 => {
                 let instruction = Instruction::from_string(tokens[0], None)
-                    .unwrap_or_else(|| panic!("Invalid opcode... {}", tokens[0]));
+                    .ok_or_else(|| format!("Invalid opcode... {}", tokens[0]))?;
 
                 program.push((Label::None, instruction));
             }
             2 => {
-                let operand = tokens[1].parse::<Operand>().unwrap();
+                let operand = tokens[1].parse::<Operand>()?;
 
                 match Instruction::from_string(tokens[0], Some(operand)) {
                     Some(val) => program.push((Label::None, val)),
                     None => {
                         let instruction = Instruction::from_string(tokens[1], None)
-                            .unwrap_or_else(|| panic!("Invalid opcode... {}", tokens[1]));
+                            .ok_or_else(|| format!("Invalid opcode... {}", tokens[1]))?;
 
                         program.push((Label::LBL(tokens[0].to_string()), instruction));
                     }
                 }
             }
             3 => {
-                let operand = tokens[2].parse::<Operand>().unwrap();
+                let operand = tokens[2].parse::<Operand>()?;
 
                 let instruction = Instruction::from_string(tokens[1], Some(operand))
-                    .unwrap_or_else(|| panic!("Invalid opcode... {}", tokens[1]));
+                    .ok_or_else(|| format!("Invalid opcode... {}", tokens[1]))?;
 
                 program.push((Label::LBL(tokens[0].to_string()), instruction));
             }
-            _ => panic!("Error while reading line: {}", line),
+            _ => return Err(format!("Error while reading line: {}", line)),
         }
     }
 
@@ -164,29 +169,29 @@ pub fn parse(code: &str, debug_mode: bool) -> Program {
         println!();
     }
 
-    program
+    Ok(program)
 }
 
-pub fn assemble(program: Program) -> [i16; 100] {
+pub fn assemble(program: Program) -> Result<[i16; 100], String> {
     let mut ram = [0; 100];
 
     for (i, (_, instruction)) in program.iter().enumerate() {
         ram[i] = match instruction {
             Instruction::BRZ(operand) | Instruction::BRP(operand) | Instruction::BRA(operand) => {
-                instruction.get_base() + operand.get_value(&program)
+                instruction.get_base() + operand.get_value(&program)?
             }
-            Instruction::DAT(operand) => operand.get_value(&program),
+            Instruction::DAT(operand) => operand.get_value(&program)?,
             Instruction::LDA(operand)
             | Instruction::STA(operand)
             | Instruction::ADD(operand)
-            | Instruction::SUB(operand) => instruction.get_base() + operand.get_value(&program),
+            | Instruction::SUB(operand) => instruction.get_base() + operand.get_value(&program)?,
             Instruction::INP | Instruction::OUT | Instruction::OTC | Instruction::HLT => {
                 instruction.get_base()
             }
         }
     }
 
-    ram
+    Ok(ram)
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -202,7 +207,7 @@ pub struct ExecutionState {
 }
 
 impl ExecutionState {
-    pub fn step<T: LMCIO>(&mut self, io_handler: &mut T) {
+    pub fn step<T: LMCIO>(&mut self, io_handler: &mut T) -> Result<(), String> {
         self.mar = self.pc;
         self.pc += 1;
         self.mdr = self.ram[self.mar as usize];
@@ -213,7 +218,7 @@ impl ExecutionState {
             901 => {
                 let res = io_handler.get_input();
                 if !(-999..=999).contains(&res) {
-                    panic!("Number out of range");
+                    return Err("Number out of range".to_string());
                 }
                 self.acc = res;
             }
@@ -267,8 +272,10 @@ impl ExecutionState {
                     self.pc = self.mar;
                 }
             }
-            _ => panic!("Invalid instruction"),
+            _ => return Err(format!("Invalid instruction: {}", self.cir)),
         };
+
+        Ok(())
     }
 }
 
@@ -306,7 +313,11 @@ impl LMCIO for DefaultIO {
     }
 }
 
-pub fn run<T: LMCIO>(program: [i16; 100], io_handler: &mut T, debug_mode: bool) {
+pub fn run<T: LMCIO>(
+    program: [i16; 100],
+    io_handler: &mut T,
+    debug_mode: bool,
+) -> Result<(), String> {
     let mut state = ExecutionState {
         pc: 0,
         cir: 0,
@@ -317,7 +328,7 @@ pub fn run<T: LMCIO>(program: [i16; 100], io_handler: &mut T, debug_mode: bool) 
     };
 
     loop {
-        state.step(io_handler);
+        state.step(io_handler)?;
 
         if state.pc == -1 {
             break;
@@ -337,4 +348,6 @@ pub fn run<T: LMCIO>(program: [i16; 100], io_handler: &mut T, debug_mode: bool) 
             break;
         }
     }
+
+    Ok(())
 }

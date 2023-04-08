@@ -20,10 +20,10 @@ fn get_program(path: &str) -> [i16; 100] {
     let code = std::fs::read_to_string(path).unwrap();
 
     // parse the code
-    let program = lmc_assembly::parse(&code, false);
+    let program = lmc_assembly::parse(&code, false).unwrap();
 
     // assemble the program
-    lmc_assembly::assemble(program)
+    lmc_assembly::assemble(program).unwrap()
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn test_sum_1() {
     };
 
     // run the program
-    lmc_assembly::run(assembled, &mut io_handler, false);
+    lmc_assembly::run(assembled, &mut io_handler, false).unwrap();
 
     // check the output
     assert_eq!(io_handler.output_buffer, vec![Output::Int(3)]);
@@ -54,7 +54,7 @@ fn test_sum_2() {
     };
 
     // run the program
-    lmc_assembly::run(assembled, &mut io_handler, false);
+    lmc_assembly::run(assembled, &mut io_handler, false).unwrap();
 
     // check the output
     assert_eq!(io_handler.output_buffer, vec![Output::Int(7)]);
@@ -71,7 +71,7 @@ fn test_fibonacci_1() {
     };
 
     // run the program
-    lmc_assembly::run(assembled, &mut io_handler, false);
+    lmc_assembly::run(assembled, &mut io_handler, false).unwrap();
 
     // check the output
     assert_eq!(
@@ -99,7 +99,7 @@ fn test_fibonacci_2() {
     };
 
     // run the program
-    lmc_assembly::run(assembled, &mut io_handler, false);
+    lmc_assembly::run(assembled, &mut io_handler, false).unwrap();
 
     // check the output
     assert_eq!(
@@ -129,7 +129,7 @@ fn test_countdown_1() {
     };
 
     // run the program
-    lmc_assembly::run(assembled, &mut io_handler, false);
+    lmc_assembly::run(assembled, &mut io_handler, false).unwrap();
 
     let mut expected = vec![];
 
@@ -152,7 +152,7 @@ fn test_countdown_2() {
     };
 
     // run the program
-    lmc_assembly::run(assembled, &mut io_handler, false);
+    lmc_assembly::run(assembled, &mut io_handler, false).unwrap();
 
     let mut expected = vec![];
 
@@ -175,7 +175,7 @@ fn test_multiplication_1() {
     };
 
     // run the program
-    lmc_assembly::run(assembled, &mut io_handler, false);
+    lmc_assembly::run(assembled, &mut io_handler, false).unwrap();
 
     // check the output
     assert_eq!(io_handler.output_buffer, vec![Output::Int(6)]);
@@ -192,7 +192,7 @@ fn test_multiplication_2() {
     };
 
     // run the program
-    lmc_assembly::run(assembled, &mut io_handler, false);
+    lmc_assembly::run(assembled, &mut io_handler, false).unwrap();
 
     // check the output
     assert_eq!(io_handler.output_buffer, vec![Output::Int(35)]);
