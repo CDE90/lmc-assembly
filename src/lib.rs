@@ -266,7 +266,7 @@ impl ExecutionState {
             }
             800..=899 => {
                 self.mar = self.cir - 800;
-                if self.acc > 0 {
+                if self.acc >= 0 {
                     self.pc = self.mar;
                 }
             }
